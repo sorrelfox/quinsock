@@ -179,7 +179,7 @@ Ready-made packages for every target below are attached to each
 
 ```sh
 sudo dnf install ./quinsock-*.el9.x86_64.rpm         # Fedora, RHEL, Rocky, Alma
-sudo apt install ./quinsock_*~deb13_amd64.deb        # Debian, Ubuntu
+sudo apt install ./quinsock_*.deb13_amd64.deb        # Debian, Ubuntu
 ```
 
 To build them yourself, `packaging/build.sh` builds each package inside a podman container of its target

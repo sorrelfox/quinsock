@@ -75,13 +75,16 @@ jobs:
       - name: Write checksums and release notes
         run: |
           version="${GITHUB_REF_NAME#v}"
+          # GitHub replaces "~" in asset names with ".", so rename the DEBs first
+          # to keep SHA256SUMS matching the files people download.
+          for f in dist/*~*; do mv -- "$f" "${f//\~/.}"; done
           (cd dist && sha256sum -- * > SHA256SUMS)
           # The release notes are this version's entry in the Debian changelog.
           awk -v head="quinsock ($version-" '
             index($0, head) == 1 { found = 1; next }
             found && /^ -- / { exit }
             found
-          ' packaging/deb/changelog | sed 's/^  //' > notes.md
+          ' packaging/deb/changelog | sed 's/^  //' | sed '/./,$!d' > notes.md
           cat >> notes.md <<'EOF'
 
           Packages are built for Fedora 44, RHEL/Rocky/Alma 9 and 10, Ubuntu 24.04 and
