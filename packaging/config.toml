@@ -1,0 +1,29 @@
+# quinsock configuration.
+#
+# Every available option, with documentation and defaults, is listed in
+# /usr/share/doc/quinsock/config.example.toml. Options not set here use their defaults.
+#
+# After editing:
+#   quinsock --config /etc/quinsock/config.toml --check-config
+#   systemctl restart quinsock
+
+[server]
+# Loopback only, so a fresh install is not an open proxy. To serve other hosts,
+# listen on all addresses AND enable password authentication below:
+#   listen = ["0.0.0.0:1080", "[::]:1080"]
+listen = ["127.0.0.1:1080", "[::1]:1080"]
+ipv6 = true
+max_connections = 8192
+
+[auth]
+# none | password
+mode = "none"
+# [[auth.users]]
+# username = "alice"
+# password = "change-me"
+
+[timeouts]
+handshake_secs = 10
+connect_secs = 10
+tcp_idle_secs = 300
+udp_idle_secs = 180

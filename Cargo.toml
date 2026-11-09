@@ -1,0 +1,88 @@
+[package]
+name = "quinsock"
+version = "0.1.1"
+edition = "2024"
+rust-version = "1.88"
+description = "High-performance SOCKS5 proxy server with TCP, BIND and UDP/QUIC relay"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sorrelfox/quinsock"
+homepage = "https://github.com/sorrelfox/quinsock"
+authors = ["M. Aranovsky <m.aranovsky@igroshop.com>"]
+readme = "README.md"
+keywords = ["socks5", "proxy", "socks", "udp", "quic"]
+categories = ["network-programming", "command-line-utilities"]
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.6", features = ["derive"] }
+ipnet = { version = "2.12", features = ["serde"] }
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+socket2 = { version = "0.6", features = ["all"] }
+subtle = "2.6"
+thiserror = "2.0"
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "io-util", "time", "signal", "sync", "macros"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+toml = "1.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
+[dev-dependencies]
+quinn = "0.11"
+rcgen = "0.14"
+tokio = { version = "1.53", features = ["full", "test-util"] }
+tokio-socks = "0.5"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+
+[package.metadata.deb]
+maintainer = "M. Aranovsky <m.aranovsky@igroshop.com>"
+copyright = "2026, M. Aranovsky"
+section = "net"
+priority = "optional"
+# The generated postinst runs systemd-sysusers to create the service user.
+depends = "$auto, systemd | systemd-standalone-sysusers | systemd-sysusers"
+extended-description = """\
+quinsock is a SOCKS5 proxy server implementing RFC 1928 (CONNECT, BIND and \
+UDP ASSOCIATE over IPv4, IPv6 and domain names) and RFC 1929 username/password \
+authentication. The UDP relay is tuned for QUIC/HTTP3 traffic."""
+maintainer-scripts = "packaging/deb/"
+changelog = "packaging/deb/changelog"
+assets = [
+    ["target/release/quinsock", "usr/bin/", "755"],
+    ["packaging/config.toml", "etc/quinsock/config.toml", "640"],
+    ["config.example.toml", "usr/share/doc/quinsock/", "644"],
+    ["README.md", "usr/share/doc/quinsock/", "644"],
+    ["packaging/deb/lintian-overrides", "usr/share/lintian/overrides/quinsock", "644"],
+]
+# unit-scripts also supplies packaging/quinsock.sysusers, installed as
+# usr/lib/sysusers.d/quinsock.conf.
+systemd-units = { unit-scripts = "packaging/", enable = false, start = false, restart-after-upgrade = true }
+
+[package.metadata.generate-rpm]
+release = "1"
+# useradd is the fallback when systemd-sysusers is unavailable (post.sh).
+requires = { shadow-utils = "*" }
+post_install_script = "packaging/rpm/post.sh"
+pre_uninstall_script = "packaging/rpm/preun.sh"
+post_uninstall_script = "packaging/rpm/postun.sh"
+assets = [
+    { source = "target/release/quinsock", dest = "/usr/bin/quinsock", mode = "755" },
+    { source = "packaging/config.toml", dest = "/etc/quinsock/config.toml", mode = "640", config = "noreplace" },
+    { source = "packaging/quinsock.service", dest = "/usr/lib/systemd/system/quinsock.service", mode = "644" },
+    { source = "packaging/quinsock.sysusers", dest = "/usr/lib/sysusers.d/quinsock.conf", mode = "644" },
+    { source = "config.example.toml", dest = "/usr/share/doc/quinsock/config.example.toml", mode = "644", doc = true },
+    { source = "README.md", dest = "/usr/share/doc/quinsock/README.md", mode = "644", doc = true },
+    { source = "LICENSE-MIT", dest = "/usr/share/licenses/quinsock/LICENSE-MIT", mode = "644" },
+    { source = "LICENSE-APACHE", dest = "/usr/share/licenses/quinsock/LICENSE-APACHE", mode = "644" },
+]
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"

@@ -1,0 +1,14 @@
+# Build environment for RPM targets (Fedora, RHEL-compatible).
+ARG BASE=registry.fedoraproject.org/fedora:44
+FROM ${BASE}
+
+RUN dnf -y install --setopt=install_weak_deps=False gcc rpm-build findutils tar \
+    && (command -v curl >/dev/null || dnf -y install curl) \
+    && dnf clean all
+
+ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
+ARG RUST_VERSION
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --profile minimal --default-toolchain "${RUST_VERSION}" \
+        --component clippy --component rustfmt --no-modify-path
+RUN cargo install --locked cargo-generate-rpm@0.21.0 && rm -rf /opt/cargo/registry

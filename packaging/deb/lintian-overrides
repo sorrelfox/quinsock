@@ -1,0 +1,2 @@
+# The configuration may contain passwords, so it is not world-readable.
+quinsock: non-standard-file-perm 0640 != 0644 [etc/quinsock/config.toml]

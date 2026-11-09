@@ -1,4 +1,8 @@
-# rustsocks
+# quinsock
+
+[![CI](https://github.com/sorrelfox/quinsock/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/sorrelfox/quinsock/actions/workflows/ci.yml)
+[![Packages](https://github.com/sorrelfox/quinsock/actions/workflows/packages.yml/badge.svg)](https://github.com/sorrelfox/quinsock/actions/workflows/packages.yml)
+[![Release](https://img.shields.io/github/v/release/sorrelfox/quinsock)](https://github.com/sorrelfox/quinsock/releases/latest)
 
 A high-performance SOCKS5 proxy server written in Rust.
 
@@ -20,9 +24,9 @@ A high-performance SOCKS5 proxy server written in Rust.
 
 ```sh
 cargo build --release
-./target/release/rustsocks --print-default-config > config.toml   # annotated defaults
-./target/release/rustsocks --config config.toml --check-config
-./target/release/rustsocks --config config.toml
+./target/release/quinsock --print-default-config > config.toml   # annotated defaults
+./target/release/quinsock --config config.toml --check-config
+./target/release/quinsock --config config.toml
 ```
 
 Test it:
@@ -170,7 +174,15 @@ cargo run --release --example bench -- --proxy 127.0.0.1:1080 --connections 1000
 
 ## Packages (RPM and DEB)
 
-`packaging/build.sh` builds each package inside a podman container of its target
+Ready-made packages for every target below are attached to each
+[GitHub Release](https://github.com/sorrelfox/quinsock/releases/latest):
+
+```sh
+sudo dnf install ./quinsock-*.el9.x86_64.rpm         # Fedora, RHEL, Rocky, Alma
+sudo apt install ./quinsock_*~deb13_amd64.deb        # Debian, Ubuntu
+```
+
+To build them yourself, `packaging/build.sh` builds each package inside a podman container of its target
 distribution, so the binary links against that distribution's own glibc:
 
 ```sh
@@ -191,22 +203,22 @@ distribution, so the binary links against that distribution's own glibc:
 
 | Path | Notes |
 |---|---|
-| `/usr/bin/rustsocks` | |
-| `/etc/rustsocks/config.toml` | Config file, never overwritten on upgrade. Listens on loopback only by default. |
-| `/usr/lib/systemd/system/rustsocks.service` | Hardened unit |
-| `/usr/lib/sysusers.d/rustsocks.conf` | Creates the `rustsocks` system user |
-| `/usr/share/doc/rustsocks/` | Docs and example config |
+| `/usr/bin/quinsock` | |
+| `/etc/quinsock/config.toml` | Config file, never overwritten on upgrade. Listens on loopback only by default. |
+| `/usr/lib/systemd/system/quinsock.service` | Hardened unit |
+| `/usr/lib/sysusers.d/quinsock.conf` | Creates the `quinsock` system user |
+| `/usr/share/doc/quinsock/` | Docs and example config |
 
 The service is not enabled automatically:
 
 ```sh
-sudoedit /etc/rustsocks/config.toml
-sudo systemctl enable --now rustsocks
-journalctl -u rustsocks -f
+sudoedit /etc/quinsock/config.toml
+sudo systemctl enable --now quinsock
+journalctl -u quinsock -f
 ```
 
 To listen on a port below 1024, or to use `outbound.interface`, grant capabilities
-with `systemctl edit rustsocks`. The unit file explains how.
+with `systemctl edit quinsock`. The unit file explains how.
 
 ## Development
 
@@ -214,6 +226,26 @@ with `systemctl edit rustsocks`. The unit file explains how.
 cargo test                                   # unit and integration tests, including QUIC end to end
 cargo clippy --all-targets -- -D warnings
 ```
+
+Work happens on the `dev` branch; send pull requests there. `main` holds released
+code only. CI runs formatting, Clippy, the tests and a build with the minimum
+supported Rust version (`rust-version` in `Cargo.toml`) on every push and pull
+request to either branch. Every push to `main` also builds all packages.
+
+To make a release:
+
+1. On `dev`, bump `version` in `Cargo.toml`, run `cargo check` to update
+   `Cargo.lock`, and add an entry to `packaging/deb/changelog`. That entry becomes
+   the release notes.
+2. Merge `dev` into `main`.
+3. Tag the merge on `main` and push the tag:
+   ```sh
+   git tag -a v0.2.0 -m "quinsock 0.2.0" && git push origin v0.2.0
+   ```
+   The Packages workflow checks that the tag matches `Cargo.toml`, is on `main`
+   and has a changelog entry. It then builds every package and publishes them as a
+   GitHub Release with a `SHA256SUMS` file. Tags with a suffix, such as
+   `v0.2.0-rc.1`, are published as pre-releases.
 
 ## License
 

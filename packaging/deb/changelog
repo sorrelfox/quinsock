@@ -1,0 +1,16 @@
+quinsock (0.1.1-1) unstable; urgency=medium
+
+  * CONNECT tries resolved addresses Happy Eyeballs style (RFC 8305), so a host
+    with broken IPv6 no longer fails dual-stack destinations after connect_secs.
+  * Raise the default DNS timeout to 15 s so a lost DNS packet is retried by the
+    system resolver instead of failing the request.
+  * Log failed CONNECT requests at info level.
+
+ -- M. Aranovsky <m.aranovsky@igroshop.com>  Thu, 10 Sep 2026 20:45:00 +0000
+
+quinsock (0.1.0-1) unstable; urgency=medium
+
+  * Initial release: SOCKS5 (RFC 1928) with CONNECT, BIND and UDP ASSOCIATE,
+    RFC 1929 username/password authentication and a QUIC-tuned UDP relay.
+
+ -- M. Aranovsky <m.aranovsky@igroshop.com>  Thu, 10 Sep 2026 12:00:00 +0000

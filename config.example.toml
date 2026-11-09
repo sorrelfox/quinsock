@@ -1,0 +1,152 @@
+# quinsock configuration.
+#
+# Every key is optional: anything left out uses the default shown here.
+# Unknown keys are rejected, so a typo is reported instead of silently ignored.
+# Durations are in seconds and may be fractional (e.g. 0.5).
+
+[server]
+# Addresses to accept SOCKS clients on. "[::]" is bound IPv6-only so it can coexist
+# with "0.0.0.0" on the same port.
+listen = ["0.0.0.0:1080", "[::]:1080"]
+# Master IPv6 switch. When false: IPv6 listen addresses are ignored, CONNECT and BIND
+# requests with an IPv6 address are refused (reply 0x08), and DNS answers are
+# filtered to IPv4 only.
+ipv6 = true
+# Tokio worker threads; 0 = one per CPU core.
+worker_threads = 0
+# Upper bound of the blocking thread pool, which runs DNS lookups (getaddrinfo).
+max_blocking_threads = 512
+# Maximum simultaneous client connections. Further clients wait in the kernel backlog.
+max_connections = 8192
+# listen(2) backlog (capped by net.core.somaxconn).
+backlog = 4096
+reuse_address = true
+# SO_REUSEPORT, so several quinsock processes can share one port.
+reuse_port = false
+# Raise the soft open-files limit to the hard limit at startup.
+raise_nofile_limit = true
+# On SIGTERM/SIGINT: stop accepting, let active TCP relays and UDP associations
+# finish for this long, then close everything.
+shutdown_grace_secs = 10
+
+[log]
+# tracing filter directive: error | warn | info | debug | trace, or per-module,
+# e.g. "info,quinsock=debug". RUST_LOG and --log-level override it.
+# Per-connection events are logged at debug level.
+level = "info"
+# full | compact
+format = "full"
+
+[auth]
+# none     - no authentication (method 0x00)
+# password - username/password, RFC 1929 (method 0x02); clients offering only 0x00 are refused.
+mode = "none"
+# Users for mode = "password". Keep this file readable only by root and the service
+# group (chmod 640) because passwords are stored in plain text.
+# [[auth.users]]
+# username = "alice"
+# password = "change-me"
+
+[commands]
+# Disabled commands are refused with reply 0x07 (command not supported).
+connect = true
+bind = true
+udp_associate = true
+
+[timeouts]
+# Whole negotiation: greeting, authentication and request.
+handshake_secs = 10
+# Total budget for connecting to the destination, across all resolved addresses.
+connect_secs = 10
+# Happy Eyeballs (RFC 8305): addresses are tried alternating IPv6/IPv4, starting the
+# next attempt after this delay (or at once if one fails); the first to connect wins.
+# This keeps destinations reachable when one address family is broken on the host.
+# Minimum 0.01, as RFC 8305 requires.
+connection_attempt_delay_secs = 0.25
+# DNS lookup timeout. Keep it well above the system resolver's per-server timeout
+# (5 s in glibc): otherwise one lost DNS packet fails the request instead of being
+# retried against the next nameserver.
+dns_secs = 15
+# Close a TCP relay after no data in either direction for this long; 0 = never.
+tcp_idle_secs = 300
+# Close a UDP association after no datagrams for this long; 0 = only when its TCP
+# connection closes. Keep it above the idle timeout of QUIC applications (often 30s).
+udp_idle_secs = 180
+# How long a BIND waits for the incoming connection.
+bind_accept_secs = 60
+
+[tcp]
+nodelay = true
+keepalive = true
+keepalive_time_secs = 60
+keepalive_interval_secs = 10
+keepalive_retries = 5
+# Relay buffer per direction per connection. Worst-case relay memory is
+# max_connections * 2 * relay_buffer_size.
+relay_buffer_size = 16384
+# SO_RCVBUF / SO_SNDBUF for relayed TCP sockets; 0 keeps Linux autotuning (recommended).
+recv_buffer_size = 0
+send_buffer_size = 0
+
+[udp]
+# Maximum simultaneous UDP associations (each holds up to 3 sockets and a 64 KiB buffer).
+max_associations = 2048
+# SO_RCVBUF / SO_SNDBUF for relay sockets. Large buffers absorb QUIC bursts. The kernel
+# caps them at net.core.rmem_max / wmem_max; the applied size is logged at startup.
+recv_buffer_size = 4194304
+send_buffer_size = 4194304
+# Set the Don't Fragment bit on outbound datagrams (IP_PMTUDISC_PROBE). QUIC requires
+# this for path MTU discovery. Datagrams larger than the interface MTU are then dropped
+# instead of fragmented; set to false for legacy UDP apps that rely on fragmentation.
+dont_fragment = true
+# Which inbound datagrams are relayed back to the client:
+#   any          - anything that reaches the association's outbound socket
+#   address      - only from IP addresses the client has sent to
+#   address_port - only from exact IP:port pairs the client has sent to
+reply_filter = "address"
+# Address reported to clients as the relay address (BND.ADDR) instead of the local
+# address the client connected to. Useful behind NAT. Only used for clients of the
+# same address family; others get the local address.
+# advertise_address = "203.0.113.10"
+# Remote peers remembered per association for reply filtering. When full, the
+# oldest is forgotten until the client sends to it again.
+max_peers = 4096
+# Per-association cache for domain names in UDP datagrams. A size or TTL of 0
+# disables it, and every datagram sent to a name then waits for its own lookup.
+dns_cache_size = 64
+dns_cache_ttl_secs = 60
+
+[bind]
+# Address reported to clients for BIND listeners instead of the local address. Only
+# used when it has the listener's address family.
+# external_address = "203.0.113.10"
+# Only accept the incoming connection from the host named in the BIND request (any
+# of its addresses). A literal 0.0.0.0 or :: in the request accepts any host.
+strict_peer_check = true
+
+[dns]
+# Maximum concurrent DNS lookups.
+max_concurrent = 256
+# Order of resolved addresses to try: system | ipv4 | ipv6
+prefer = "system"
+
+[outbound]
+# Source addresses for outgoing connections and datagrams.
+# bind_ipv4 = "192.0.2.10"
+# bind_ipv6 = "2001:db8::10"
+# Bind outgoing sockets to a network interface (SO_BINDTODEVICE, needs CAP_NET_RAW).
+# interface = "eth0"
+
+[acl]
+# Client networks allowed to connect; empty = everyone.
+client_allow = []
+# Destination networks allowed; empty = everything not denied.
+dest_allow = []
+# Destination networks denied; checked after DNS resolution, and also applied to
+# peers connecting to a BIND listener. To stop clients from reaching the server's
+# own host and private networks, use:
+# dest_deny = ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12",
+#              "192.168.0.0/16", "169.254.0.0/16", "fc00::/7", "fe80::/10"]
+dest_deny = []
+# Destination ports denied, e.g. [25] to block SMTP.
+dest_deny_ports = []

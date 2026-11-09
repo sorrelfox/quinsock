@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+# Creates the quinsock user (systemd-sysusers) and handles the systemd unit.
+#DEBHELPER#
+
+# Only on first install, so local permission changes survive upgrades.
+if [ "$1" = "configure" ] && [ -z "$2" ]; then
+    chown root:quinsock /etc/quinsock /etc/quinsock/config.toml
+    chmod 0750 /etc/quinsock
+    chmod 0640 /etc/quinsock/config.toml
+fi
