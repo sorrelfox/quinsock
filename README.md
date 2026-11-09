@@ -247,6 +247,11 @@ To make a release:
    GitHub Release with a `SHA256SUMS` file. Tags with a suffix, such as
    `v0.2.0-rc.1`, are published as pre-releases.
 
+## About
+
+This is my personal project that I needed for myself. Therefore, it was created
+through the joint efforts of Claude Opus 5.5 and me.
+
 ## License
 
 MIT OR Apache-2.0.
