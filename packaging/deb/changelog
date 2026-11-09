@@ -1,3 +1,11 @@
+quinsock (0.1.2-1) unstable; urgency=medium
+
+  * No changes to the server itself.
+  * Packages are now built on GitHub and published with each release, with a
+    SHA256SUMS file whose names match the downloaded files.
+
+ -- M. Aranovsky <m.aranovsky@igroshop.com>  Mon, 09 Nov 2026 14:57:32 +0000
+
 quinsock (0.1.1-1) unstable; urgency=medium
 
   * CONNECT tries resolved addresses Happy Eyeballs style (RFC 8305), so a host
