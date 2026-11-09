@@ -1,0 +1,98 @@
+# Builds the RPM and DEB packages with packaging/build.sh, one job per target
+# distribution. Every push to main builds them; a v* tag on main also publishes a
+# GitHub Release with the packages attached.
+name: Packages
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check the tag against main, Cargo.toml and the changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cargo_version=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          if [[ "$version" != "$cargo_version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Cargo.toml version $cargo_version"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME is not on main; releases are made from main only"
+            exit 1
+          fi
+          if ! grep -q "^quinsock ($version-" packaging/deb/changelog; then
+            echo "::error::packaging/deb/changelog has no entry for $version"
+            exit 1
+          fi
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: verify
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [fedora44, el9, el10, ubuntu2404, ubuntu2604, debian13]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build package
+        env:
+          CONTAINER_ENGINE: docker
+        run: ./packaging/build.sh "${{ matrix.target }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.target }}
+          path: dist/${{ matrix.target }}/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: package-*
+          path: dist
+          merge-multiple: true
+      - name: Write checksums and release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          # The release notes are this version's entry in the Debian changelog.
+          awk -v head="quinsock ($version-" '
+            index($0, head) == 1 { found = 1; next }
+            found && /^ -- / { exit }
+            found
+          ' packaging/deb/changelog | sed 's/^  //' > notes.md
+          cat >> notes.md <<'EOF'
+
+          Packages are built for Fedora 44, RHEL/Rocky/Alma 9 and 10, Ubuntu 24.04 and
+          26.04, and Debian 13 (x86_64). `SHA256SUMS` lists their checksums.
+          EOF
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          flags=()
+          [[ "$version" == *-* ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+            --title "quinsock $version" --notes-file notes.md "${flags[@]}"
